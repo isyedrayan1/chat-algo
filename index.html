@@ -558,6 +558,7 @@
             display: flex;
             gap: 10px;
             justify-content: flex-end;
+            flex-wrap: nowrap; /* Prevent stacking on mobile */
         }
 
         .btn {
@@ -567,6 +568,7 @@
             cursor: pointer;
             font-size: 0.9rem;
             transition: all 0.3s ease;
+            white-space: nowrap; /* Prevent text wrapping */
         }
 
         .btn-primary {
@@ -658,6 +660,7 @@
         @media (max-width: 1024px) {
             .chat-area { padding: 20px; max-width: 800px; }
             .input-wrapper { max-width: 800px; }
+            .button-group { flex-wrap: nowrap; } /* Ensure buttons stay inline */
         }
 
         @media (max-width: 768px) {
@@ -666,9 +669,11 @@
             .chat-area { padding: 15px; max-width: 100%; }
             .input-wrapper { max-width: 100%; }
             .header .logo a { font-size: 1.3rem; }
-            .btn { padding: 8px 16px; font-size: 0.85rem; }
+            .btn { padding: 8px 12px; font-size: 0.85rem; } /* Adjusted padding for mobile */
             .welcome-message h2 { font-size: 2rem; }
             .welcome-message p { font-size: 1rem; }
+            .welcome-message .suggestion-btn { padding: 6px 12px; font-size: 0.8rem; }
+            .button-group { gap: 5px; } /* Reduce gap on mobile */
         }
 
         @media (max-width: 480px) {
@@ -676,19 +681,27 @@
             .sidebar.open { transform: translateX(220px); }
             .chat-area { padding: 10px; }
             .message { max-width: 90%; font-size: 0.9rem; }
-            .button-group { flex-direction: column; gap: 8px; }
-            .header-controls button { padding: 6px 12px; font-size: 0.8rem; }
-            #userInput { font-size: 0.9rem; min-height: 50px; }
+            .button-group {
+                flex-direction: row; /* Force horizontal layout */
+                gap: 5px;
+                justify-content: flex-end;
+                overflow-x: auto; /* Allow horizontal scrolling if needed */
+                white-space: nowrap; /* Prevent wrapping */
+            }
+            .header-controls button { padding: 6px 10px; font-size: 0.8rem; }
+            #userInput { font-size: 0.9rem; min-height: 50px; padding: 10px; }
             .welcome-message h2 { font-size: 1.5rem; }
             .welcome-message p { font-size: 0.9rem; }
-            .welcome-message .suggestion-btn { padding: 6px 12px; font-size: 0.8rem; }
+            .welcome-message .suggestion-btn { padding: 6px 10px; font-size: 0.8rem; }
         }
 
         @media (max-width: 360px) {
             .sidebar { width: 200px; left: -200px; }
             .sidebar.open { transform: translateX(200px); }
             .header .logo a { font-size: 1.2rem; }
-            .header-controls button { padding: 5px 10px; font-size: 0.75rem; }
+            .header-controls button { padding: 5px 8px; font-size: 0.75rem; }
+            .button-group { gap: 3px; }
+            .btn { padding: 6px 10px; font-size: 0.75rem; }
         }
     </style>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/prism.min.js"></script>
@@ -721,9 +734,10 @@
                 <h2>Welcome to AlgoAI</h2>
                 <p>Good evening! How can I assist you today?</p>
                 <div class="suggestions">
-                    <button class="suggestion-btn" data-query="How to implement a binary search">How to</button>
-                    <button class="suggestion-btn" data-query="Analyze this code: print('hello')">Analyze</button>
-                    <button class="suggestion-btn" data-query="Write a Python function to sort an array">Code</button>
+                    <button class="suggestion-btn" data-input="Explore algorithms about...">Explore algorithms</button>
+                    <button class="suggestion-btn" data-input="How to implement...">How to</button>
+                    <button class="suggestion-btn" data-input="Analyze this code: ">Analyze</button>
+                    <button class="suggestion-btn" data-input="Write a...">Code</button>
                 </div>
             </div>
             <div class="chat-area" id="chatArea"></div>
@@ -856,8 +870,8 @@
         async function sendMessage(query, deepDive = false) {
             if (isLoading || !query.trim()) return;
             isLoading = true;
-            hasTyped = true; // Mark that typing has started
-            welcomeMessage.classList.add('hidden'); // Hide welcome message when typing starts
+            hasTyped = true;
+            welcomeMessage.classList.add('hidden');
             appendMessage(query, true);
             const typingIndicator = appendTypingIndicator();
             document.getElementById('userInput').value = '';
@@ -899,8 +913,8 @@
                     currentChatId = data.chat_id;
                     localStorage.setItem('currentChatId', currentChatId);
                     chatArea.innerHTML = '';
-                    hasTyped = false; // Reset typing flag for new chat
-                    welcomeMessage.classList.remove('hidden'); // Show welcome message on new chat
+                    hasTyped = false;
+                    welcomeMessage.classList.remove('hidden');
                     updateChatHistory();
                 } else {
                     throw new Error(data.error || 'Failed to create new chat');
@@ -961,7 +975,6 @@
                         const botMsg = appendMessage(msg.ai, false);
                         if (botMsg) botMsg.classList.add('appear');
                     });
-                    // Do not show welcome message when loading history
                     if (!hasTyped) welcomeMessage.classList.remove('hidden');
                     updateChatHistory();
                     document.getElementById('sidebar').classList.remove('open');
@@ -1071,11 +1084,12 @@
             }
         });
 
-        // Add click handlers for suggestion buttons
         document.querySelectorAll('.suggestion-btn').forEach(btn => {
             btn.onclick = () => {
-                const query = btn.getAttribute('data-query');
-                sendMessage(query, deepDiveActive);
+                const input = btn.getAttribute('data-input');
+                document.getElementById('userInput').value = input;
+                autoResizeTextarea();
+                document.getElementById('userInput').focus();
             };
         });
 
