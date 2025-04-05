@@ -242,11 +242,12 @@
             display: flex;
             justify-content: space-between;
             align-items: center;
-            position: fixed; /* Changed to fixed */
+            position: fixed;
             top: 0;
             left: 0;
             right: 0;
             z-index: 10;
+            will-change: top;
         }
 
         body.light .header {
@@ -332,6 +333,9 @@
             align-items: center;
             gap: 20px;
             will-change: opacity, transform;
+            pointer-events: none; /* Prevent interaction overlap */
+            max-width: 90%;
+            margin-top: 50px; /* Offset for header */
         }
 
         body.light .welcome-message {
@@ -377,6 +381,7 @@
             cursor: pointer;
             font-size: 0.9rem;
             transition: background 0.2s ease, color 0.2s ease;
+            pointer-events: auto; /* Allow interaction with buttons */
         }
 
         body.light .welcome-message .suggestion-btn {
@@ -398,8 +403,8 @@
             flex: 1;
             overflow-y: auto;
             padding: 30px;
-            padding-top: 70px; /* Account for fixed header */
-            padding-bottom: 150px; /* Account for fixed footer */
+            padding-top: 70px;
+            padding-bottom: 150px;
             max-width: 1000px;
             margin: 0 auto;
             width: 100%;
@@ -440,7 +445,7 @@
             color: #FFFFFF;
             align-self: flex-end;
             margin-left: auto;
-            max-width: 80%; /* Keep user messages at 80% width */
+            max-width: 80%;
         }
 
         body.light .message.user {
@@ -450,12 +455,12 @@
         }
 
         .message.bot {
-            background: rgba(45, 55, 72, 0.3); /* Semi-transparent background */
+            background: rgba(45, 55, 72, 0.3);
             backdrop-filter: blur(12px);
             border: 1px solid rgba(245, 166, 35, 0.1);
             box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
             border-radius: 16px;
-            max-width: 100%; /* Full width of chat area */
+            max-width: 100%;
             margin-right: 0;
             margin-left: 0;
             padding: 20px;
@@ -622,7 +627,7 @@
             transition: opacity 0.2s ease;
         }
 
-        body.light .copy-btn 🙂 {
+        body.light .copy-btn {
             color: #F59E0B;
         }
 
@@ -837,6 +842,7 @@
             }
             .input-wrapper { max-width: 800px; }
             .button-group { gap: 6px; }
+            .welcome-message { max-width: 85%; }
         }
 
         @media (max-width: 768px) {
@@ -856,6 +862,7 @@
             .welcome-message p { font-size: 1rem; }
             .welcome-message .suggestion-btn { padding: 6px 12px; font-size: 0.8rem; }
             .input-area { padding: 8px; }
+            .welcome-message { margin-top: 50px; }
         }
 
         @media (max-width: 480px) {
@@ -882,6 +889,7 @@
             .welcome-message p { font-size: 0.9rem; }
             .welcome-message .suggestion-btn { padding: 6px 10px; font-size: 0.8rem; }
             .input-area { padding: 6px; }
+            .welcome-message { max-width: 90%; margin-top: 50px; }
         }
 
         @media (max-width: 360px) {
@@ -897,6 +905,7 @@
                 padding-bottom: 70px;
             }
             .input-area { padding: 5px; }
+            .welcome-message { margin-top: 40px; }
         }
     </style>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/prism.min.js" defer></script>
@@ -954,13 +963,14 @@
     </div>
 
     <script>
-        const BASE_URL = "https://backalgo.onrender.com";
+        const BASE_URL = "https://backalgo.onrender.com"; // Update this URL
         const chatArea = document.getElementById('chatArea');
         const welcomeMessage = document.getElementById('welcomeMessage');
         let currentChatId = null;
         let isLoading = false;
         let deepDiveActive = false;
         let hasTyped = false;
+        let messageSent = false;
         let chatScrollPositions = new Map();
         let conversationStarted = false;
 
@@ -986,10 +996,8 @@
             let lastIndex = 0;
             const fragments = [];
 
-            // Process the text sequentially to maintain order
             let match;
             while ((match = codeBlockRegex.exec(plainText)) !== null) {
-                // Add text before the code block
                 const textBefore = plainText.substring(lastIndex, match.index);
                 if (textBefore.trim()) {
                     let formattedText = textBefore
@@ -1007,7 +1015,6 @@
                     fragments.push({ type: 'text', content: formattedText });
                 }
 
-                // Add the code block
                 const language = match[1] ? match[1].toLowerCase() : 'plaintext';
                 const code = match[2].trim();
                 fragments.push({ type: 'code', language, code });
@@ -1015,7 +1022,6 @@
                 lastIndex = match.index + match[0].length;
             }
 
-            // Add any remaining text after the last code block
             const remainingText = plainText.substring(lastIndex);
             if (remainingText.trim()) {
                 let formattedText = remainingText
@@ -1044,7 +1050,6 @@
             const textDiv = document.createElement('div');
             textDiv.classList.add('text-content');
 
-            // Parse the text and append fragments in order
             const fragments = parseMarkdown(text);
             fragments.forEach(fragment => {
                 if (fragment.type === 'text') {
@@ -1096,7 +1101,6 @@
                 msgDiv.appendChild(copyBtn);
             }
 
-            // Batch DOM update
             requestAnimationFrame(() => {
                 chatArea.appendChild(msgDiv);
                 scrollToBottom();
@@ -1123,10 +1127,10 @@
         }
 
         function updateWelcomeMessageVisibility() {
-            if (chatArea.children.length > 0) {
-                welcomeMessage.classList.add('hidden');
-            } else {
-                welcomeMessage.classList.remove('hidden');
+            const shouldShow = currentChatId && !messageSent && chatArea.children.length === 0;
+            welcomeMessage.classList.toggle('hidden', !shouldShow);
+            if (shouldShow) {
+                welcomeMessage.querySelector('p').textContent = chatArea.dataset.greeting || "Good evening! How can I assist you today?";
             }
         }
 
@@ -1134,7 +1138,8 @@
             if (isLoading || !query.trim()) return;
             isLoading = true;
             hasTyped = true;
-            welcomeMessage.classList.add('hidden');
+            messageSent = true;
+            updateWelcomeMessageVisibility();
             appendMessage(query, true);
             const typingIndicator = appendTypingIndicator();
             document.getElementById('userInput').value = '';
@@ -1160,8 +1165,7 @@
                 }
             } catch (error) {
                 typingIndicator.remove();
-                const errorMessage = appendMessage(`Error: ${error.message}`, false);
-                if (errorMessage) errorMessage.classList.add('appear');
+                appendMessage(`Oops! Something went wrong. Please try again later.`, false);
             } finally {
                 isLoading = false;
             }
@@ -1182,7 +1186,9 @@
                     currentChatId = data.chat_id;
                     conversationStarted = false;
                     chatArea.innerHTML = '';
+                    chatArea.dataset.greeting = data.greeting || "Good evening! How can I assist you today?";
                     hasTyped = false;
+                    messageSent = false;
                     updateWelcomeMessageVisibility();
                     updateChatHistory();
                     history.pushState({}, '', window.location.pathname);
@@ -1190,8 +1196,7 @@
                     throw new Error(data.error || 'Failed to create new chat');
                 }
             } catch (error) {
-                const errorMessage = appendMessage(`Error creating new chat: ${error.message}`, false);
-                if (errorMessage) errorMessage.classList.add('appear');
+                appendMessage(`Oops! Something went wrong. Please try again later.`, false);
             }
         }
 
@@ -1220,21 +1225,23 @@
                             actions.classList.add('chat-actions');
                             const editBtn = document.createElement('button');
                             editBtn.textContent = '✎';
-                            editBtn.onclick = () => {
+                            editBtn.onclick = (e) => {
+                                e.stopPropagation();
                                 const newTitle = prompt('Edit title:', chat.title);
                                 if (newTitle) updateChatTitle(chat.chat_id, newTitle);
                             };
                             actions.appendChild(editBtn);
                             const deleteBtn = document.createElement('button');
                             deleteBtn.textContent = '🗑️';
-                            deleteBtn.onclick = () => deleteChat(chat.chat_id);
+                            deleteBtn.onclick = (e) => {
+                                e.stopPropagation();
+                                if (confirm('Delete this chat?')) deleteChat(chat.chat_id);
+                            };
                             actions.appendChild(deleteBtn);
                             li.appendChild(actions);
                             if (chat.chat_id === currentChatId) li.classList.add('active');
                             chatList.appendChild(li);
                         });
-                } else {
-                    throw new Error('Failed to fetch chat history');
                 }
             } catch (error) {
                 console.error('Error updating history:', error);
@@ -1247,6 +1254,7 @@
             }
 
             try {
+                console.log(`Attempting to load chat with ID: ${chatId}`);
                 const response = await fetch(`${BASE_URL}/get_chat/${chatId}`);
                 const data = await response.json();
                 if (response.ok) {
@@ -1258,6 +1266,7 @@
                         const botMsg = appendMessage(msg.ai, false);
                         if (botMsg) botMsg.classList.add('appear');
                     });
+                    messageSent = data.history.length > 0;
                     updateWelcomeMessageVisibility();
                     updateChatHistory();
                     document.getElementById('sidebar').classList.remove('open');
@@ -1267,12 +1276,15 @@
                     chatArea.scrollTop = savedScrollPosition;
 
                     history.pushState({ chatId: currentChatId }, '', `?chat=${currentChatId}`);
+                } else if (response.status === 404) {
+                    console.warn(`Chat ${chatId} not found, creating new chat`);
+                    newChat();
                 } else {
-                    throw new Error('Failed to load chat');
+                    throw new Error(data.error || 'Failed to load chat');
                 }
             } catch (error) {
-                const errorMessage = appendMessage(`Error loading chat: ${error.message}`, false);
-                if (errorMessage) errorMessage.classList.add('appear');
+                console.error('Load chat error:', error);
+                appendMessage(`Oops! Something went wrong. Please try again later.`, false);
             }
         }
 
@@ -1290,7 +1302,6 @@
         }
 
         async function deleteChat(chatId) {
-            if (!confirm('Delete this chat?')) return;
             try {
                 const response = await fetch(`${BASE_URL}/delete_chat`, {
                     method: 'POST',
@@ -1312,7 +1323,6 @@
             if (!confirm('Clear all chats? This action cannot be undone.')) return;
             try {
                 const response = await fetch(`${BASE_URL}/clear_chats`, { method: 'POST' });
-                const data = await response.json();
                 if (response.ok) {
                     currentChatId = null;
                     conversationStarted = false;
@@ -1323,8 +1333,7 @@
                     throw new Error('Failed to clear chats');
                 }
             } catch (error) {
-                const errorMessage = appendMessage(`Error clearing chats: ${error.message}`, false);
-                if (errorMessage) errorMessage.classList.add('appear');
+                appendMessage(`Oops! Something went wrong. Please try again later.`, false);
             }
         }
 
@@ -1370,16 +1379,20 @@
             conversationStarted = false;
             chatArea.innerHTML = '';
             hasTyped = false;
+            messageSent = false;
             updateWelcomeMessageVisibility();
 
             const urlParams = new URLSearchParams(window.location.search);
             const chatIdFromUrl = urlParams.get('chat');
 
             if (chatIdFromUrl) {
-                await loadChat(chatIdFromUrl);
+                await loadChat(chatIdFromUrl).catch(() => {
+                    console.warn(`Invalid chat ID from URL, starting new chat`);
+                    newChat();
+                });
             } else {
-                history.replaceState({}, '', window.location.pathname);
                 await newChat();
+                history.replaceState({}, '', window.location.pathname);
             }
         }
 
@@ -1445,18 +1458,20 @@
 
         document.getElementById('userInput').addEventListener('input', debounce(() => {
             autoResizeTextarea();
-            if (!hasTyped) {
-                hasTyped = true;
-                welcomeMessage.classList.add('hidden');
-            }
         }, 100));
 
         document.querySelectorAll('.suggestion-btn').forEach(btn => {
             btn.onclick = () => {
-                const input = btn.getAttribute('data-input');
-                document.getElementById('userInput').value = input;
-                autoResizeTextarea();
-                document.getElementById('userInput').focus();
+                fetch(`${BASE_URL}/suggestions?category=${encodeURIComponent(btn.getAttribute('data-input'))}`)
+                    .then(response => response.json())
+                    .then(data => {
+                        if (data.suggestion) {
+                            document.getElementById('userInput').value = data.suggestion;
+                            autoResizeTextarea();
+                            document.getElementById('userInput').focus();
+                        }
+                    })
+                    .catch(error => console.error('Error fetching suggestion:', error));
             };
         });
 
